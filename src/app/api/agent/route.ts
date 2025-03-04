@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processPrompt } from '@/lib/ai/agent';
+import { processPrompt, getAgentStatus } from '@/lib/ai/server-agent';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,12 +36,6 @@ export async function POST(req: NextRequest) {
 
 // GET method to check agent status and available models
 export async function GET() {
-  return NextResponse.json({
-    status: 'available',
-    models: {
-      planner: 'anthropic/claude-3-opus',
-      analyzer: 'anthropic/claude-3-haiku',
-      multimodal: 'gemini-2-flash'
-    }
-  });
+  const status = await getAgentStatus();
+  return NextResponse.json(status);
 } 

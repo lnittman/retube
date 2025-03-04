@@ -1,5 +1,3 @@
-'use server';
-
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // Types
@@ -577,6 +575,17 @@ export class AIAgent {
   }
 }
 
+// Export a function to process prompts for the API route
+export async function processPrompt(input: string, inputType: 'url' | 'text'): Promise<AgentTask> {
+  const agent = new AIAgent({
+    openRouterApiKey: process.env.OPENROUTER_API_KEY || '',
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+  });
+  
+  await agent.createTask(input, inputType);
+  return agent.execute();
+}
+
 // Factory function to create an agent with environment variables
 export async function createAgent(): Promise<AIAgent> {
   const openRouterApiKey = process.env.OPENROUTER_API_KEY || '';
@@ -590,16 +599,4 @@ export async function createAgent(): Promise<AIAgent> {
     openRouterApiKey,
     geminiApiKey
   });
-}
-
-// Convenience function to process a prompt directly
-export async function processPrompt(input: string, inputType: 'url' | 'text'): Promise<AgentTask> {
-  try {
-    const agent = await createAgent();
-    const task = await agent.createTask(input, inputType);
-    return await agent.execute();
-  } catch (error) {
-    console.error('Error processing prompt:', error);
-    throw error;
-  }
 } 
