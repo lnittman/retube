@@ -54,6 +54,27 @@ Retube is an AI-native single page application that reimagines video discovery a
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
+## Deployment
+
+The application is deployed on Vercel. To deploy:
+
+1. Make sure you have the Vercel CLI installed:
+   ```
+   npm install -g vercel
+   ```
+
+2. Log in to Vercel:
+   ```
+   vercel login
+   ```
+
+3. Deploy to production:
+   ```
+   npm run deploy
+   ```
+
+4. Alternatively, push to the main branch on GitHub for automatic deployment via GitHub integration.
+
 ## Project Structure
 
 - `/app` - Next.js App Router pages and layouts
