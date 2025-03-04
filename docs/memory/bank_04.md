@@ -1,69 +1,49 @@
 # Retube Implementation Memory Bank 04
 
-## Design Direction Update
-We're pivoting to a hardware-inspired UI design that emulates physical devices like Teenage Engineering products and the Rabbit R1. This approach will make retube unique and memorable, while providing a consistent experience across devices.
+## Hardware-Inspired UI Concept
 
-## Design Vision
-- **Device-Like Interface**: The entire UI will resemble a specialized hardware device with a screen and physical controls
-- **Consistent Form Factor**: Maintain fixed proportions regardless of screen size (like a virtual device in the center)
-- **Utilitarian Aesthetics**: Embrace constraints with deliberate, functional design elements
-- **Playful Hardware Details**: Include screws, buttons, switches, and texture for a tangible feel
-- **Boot Sequence**: Add hardware-like startup animations and transitions
+### Vision
+Transform the Retube UI to resemble a physical hardware device (inspired by Teenage Engineering, Rabbit R1, Gameboy), creating a distinctive, playful yet utilitarian interface that stands out from conventional web apps.
 
-## Home Page Redesign
-- Replace generic "semantic clusters" concept with a more engaging device boot experience
-- Show "retube" briefly on startup, then fade to a minimal interface with a video preview
-- Keep only a "begin" button visible after the initial sequence
-- Create a framed "screen" where content appears with subtle scan lines or pixel effects
+### Core Principles
+- **Hardware Aesthetic**: Frame the entire UI within a device-like container with physical characteristics
+- **Consistency Across Devices**: Same device layout on mobile and desktop (scales/rotates on larger screens)
+- **Physical Controls**: Surface AI functionality through tactile-looking controls and interfaces
+- **Utilitarian Beauty**: Embrace constraints of hardware design for a focused, powerful interface
 
-## UI Elements to Create
-- **Device Frame**: Persistent container with hardware-inspired details
-- **Screen Area**: Main content display with subtle CRT/LCD effects
-- **Hardware Controls**:
-  - D-pad or joystick-like navigation
-  - Physical buttons/switches for common actions
-  - Dials for adjusting parameters
-  - Terminal-like prompt interface
-  - Palette selection resembling physical color switches
+### Implementation Plan
+1. Create a device frame component that will contain the entire application UI
+2. Revise home page to show only "retube" on initial load, then fade it out
+3. Fade in the 3-row grid layout and begin button
+4. Add subtle physical details (buttons, indicators, bezels, etc.)
+5. Design the "screen" area with a slightly different texture/appearance
+6. Maintain all current functionality but frame it within the hardware paradigm
 
-## Implementation Plan
-1. Create base device frame component with CSS
-2. Update home page with new boot sequence
-3. Redesign the grid listing page to fit within the device screen
-4. Modify navigation to use hardware-inspired controls
-5. Update palette selection to match the hardware aesthetic
-6. Redesign the prompt interface to resemble a terminal
-7. Add satisfying button press animations and sounds
+### Home Page Specific Changes
+- Initial load: Only show "retube" text centered in device
+- After brief delay: Fade out name, fade in content
+- Replace "semantic clusters" terminology with something more distinctive
+- Add a live video card hero element showcasing the app's capabilities
+- Frame all UI within the device container
 
-## Technical Approach
-- Use fixed aspect ratio container for the device frame
-- Implement hardware details with CSS (borders, textures, shadows)
-- Use Framer Motion for physical-feeling animations
-- Create a design system for consistent hardware elements
-- Maintain a constrained color palette appropriate for a device
+### Device Frame Features
+- Rounded corners and bezel
+- Physical-looking controls (directional pad, buttons)
+- Status indicators (LEDs, battery, etc.)
+- Screen area with subtle scan lines or pixel texture
+- Consistent proportions regardless of device
 
-## Current Status
-- Core functionality is operational but with a generic web app aesthetic
-- Recent improvements to palette selection and UI positioning
-- All required pages are implemented
+### Technical Approach
+- Use a fixed-aspect-ratio container for the device
+- CSS for hardware details (shadows, textures, buttons)
+- Position the device in the center of the viewport
+- Scale device appropriately based on screen size
+- Add subtle animations for "powering on" and state changes
 
-## Next Steps
-- [ ] Create a `.device-frame` component with hardware styling
-- [ ] Redesign the home page with boot sequence
-- [ ] Update grid listing page to fit device aesthetic
-- [ ] Redesign navigation as hardware controls
-- [ ] Modify palette interface to match hardware look
-- [ ] Update prompt interface to terminal style
+### Next Steps
+1. Create the DeviceFrame component
+2. Update homepage to implement new loading sequence
+3. Style existing UI elements to match hardware aesthetic
+4. Ensure responsive behavior maintains device appearance
 
-## Design References
-- Teenage Engineering OP-1 and Pocket Operator UI/UX
-- Rabbit R1 minimalist interface
-- Playdate handheld game console
-- Retro computing terminals and command lines
-- Gameboy and other classic handheld devices
-
-## Technical Considerations
-- Ensure accessibility despite the hardware aesthetic
-- Maintain responsive design while keeping the device proportions
-- Ensure the UI is still functional and intuitive
-- Balance the aesthetic with good UX principles 
+This approach will give Retube a uniquely tangible feel while maintaining its functionality - making it feel like a dedicated hardware device for AI-powered video discovery rather than just another web app. 
