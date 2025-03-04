@@ -1,214 +1,226 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, User, X } from '@phosphor-icons/react';
-import { useRouter } from 'next/navigation';
-import PromptInterface from '@/components/PromptInterface';
-import Link from 'next/link';
+import Image from 'next/image';
+import { SquaresFour, Rows } from '@phosphor-icons/react';
+import { Header } from '@/components/layout/header';
 
-type ProcessingStage = 'planning' | 'searching' | 'analyzing' | 'generating' | null;
+type ViewMode = 'carousel' | 'grid';
+
+type Grid = {
+  id: string;
+  title: string;
+  description: string;
+  videoCount: number;
+  thumbnail: string;
+  createdAt: string;
+};
+
+// Simplified Tabs component for view switching
+function Tabs({ value, onChange }: { value: string, onChange: (value: string) => void }) {
+  return (
+    <div className="flex bg-zinc-900 border border-zinc-800 rounded-md overflow-hidden">
+      <button
+        onClick={() => onChange('carousel')}
+        className={`px-2 py-1 ${value === 'carousel' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}
+      >
+        <Rows size={18} />
+      </button>
+      <button
+        onClick={() => onChange('grid')}
+        className={`px-2 py-1 ${value === 'grid' ? 'bg-zinc-800 text-white' : 'text-zinc-400'}`}
+      >
+        <SquaresFour size={18} />
+      </button>
+    </div>
+  );
+}
+
+// Simple spinner component
+function Spinner() {
+  return (
+    <div className="w-8 h-8 border-2 border-zinc-700 border-t-white rounded-full animate-spin"></div>
+  );
+}
 
 export default function GridsPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>('carousel');
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStage, setProcessingStage] = useState<ProcessingStage>(null);
-  const [processingMessages, setProcessingMessages] = useState<string[]>([]);
-  const [grids, setGrids] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  
-  const router = useRouter();
+  const [grids, setGrids] = useState<Grid[]>([]);
 
-  // Simulate loading
+  // Load grids (mock data for now)
   useEffect(() => {
-    // Mock loading delay
-    const timer = setTimeout(() => {
+    const loadGrids = async () => {
+      setIsLoading(true);
+      // Simulate loading time
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Mock data
+      const mockGrids: Grid[] = [
+        {
+          id: '1',
+          title: 'indie bedroom pop',
+          description: 'cozy vibes for late nights',
+          videoCount: 12,
+          thumbnail: 'https://source.unsplash.com/random/800x800?music',
+          createdAt: '2023-10-15',
+        },
+        {
+          id: '2',
+          title: 'modular synthesis',
+          description: 'electronic music experiments',
+          videoCount: 8,
+          thumbnail: 'https://source.unsplash.com/random/800x800?synth',
+          createdAt: '2023-10-10',
+        },
+        {
+          id: '3',
+          title: 'film cinematography',
+          description: 'beautiful movie shots',
+          videoCount: 15,
+          thumbnail: 'https://source.unsplash.com/random/800x800?film',
+          createdAt: '2023-10-05',
+        },
+        {
+          id: '4',
+          title: 'japanese city pop',
+          description: '80s nostalgia from japan',
+          videoCount: 10,
+          thumbnail: 'https://source.unsplash.com/random/800x800?tokyo',
+          createdAt: '2023-09-28',
+        },
+        {
+          id: '5',
+          title: 'minimal techno',
+          description: 'berlin club vibes',
+          videoCount: 9,
+          thumbnail: 'https://source.unsplash.com/random/800x800?techno',
+          createdAt: '2023-09-20',
+        },
+        {
+          id: '6',
+          title: 'ambient soundscapes',
+          description: 'relaxing atmospheric music',
+          videoCount: 11,
+          thumbnail: 'https://source.unsplash.com/random/800x800?ambient',
+          createdAt: '2023-09-15',
+        },
+      ];
+      
+      setGrids(mockGrids);
       setIsLoading(false);
-      // Mock grids data
-      setGrids([
-        { id: 1, title: 'Minimalist Design', description: 'Exploring minimalism across different mediums', videos: 12 },
-        { id: 2, title: 'Typography Explorations', description: 'The evolution and impact of typography', videos: 8 },
-        { id: 3, title: 'Ambient Music', description: 'Atmospheric and environmental music compositions', videos: 15 },
-        { id: 4, title: 'Geometric Architecture', description: 'Buildings and spaces defined by geometric principles', videos: 10 },
-      ]);
-    }, 1200);
-
-    return () => clearTimeout(timer);
+    };
+    
+    loadGrids();
   }, []);
 
-  // Function to navigate back to home
-  const goBack = () => {
-    router.push('/');
-  };
-
-  // Function to navigate to grid creation form
-  const createGrid = () => {
-    router.push('/grids/create');
-  };
-
-  // Function to handle prompt submission
-  const handlePromptSubmit = async (value: string, type: 'url' | 'text') => {
-    setIsProcessing(true);
-    setError(null);
-    setProcessingMessages([]);
-    
-    try {
-      // Add initial message
-      addProcessingMessage(`Starting to process your ${type === 'url' ? 'URL' : 'request'}: ${value}`);
-      
-      // Simulate the stages of processing
-      setProcessingStage('planning');
-      await simulateProcessingStage(1500);
-      addProcessingMessage("Planning approach to analyze content and create semantic relationships");
-      
-      if (type === 'url') {
-        addProcessingMessage(`Fetching content from URL using r.jina.ai/${encodeURIComponent(value)}`);
-      }
-      
-      setProcessingStage('searching');
-      await simulateProcessingStage(2000);
-      addProcessingMessage("Searching for related content and identifying key themes");
-      addProcessingMessage("Extracting entities and concepts for semantic mapping");
-      
-      setProcessingStage('analyzing');
-      await simulateProcessingStage(2000);
-      addProcessingMessage("Analyzing visual and textual components with Gemini-2-flash");
-      addProcessingMessage("Detecting patterns and relationships between content pieces");
-      
-      setProcessingStage('generating');
-      await simulateProcessingStage(1500);
-      addProcessingMessage("Generating semantic grid structure with optimized clusters");
-      addProcessingMessage("Finalizing grid with metadata and relationships");
-
-      // Make the actual API call in a real implementation
-      // const response = await fetch('/api/agent', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ input: value, inputType: type })
-      // });
-      
-      // const data = await response.json();
-      // if (!response.ok) throw new Error(data.error || 'Failed to process prompt');
-      
-      // Add the new grid to the list (mock)
-      const newGrid = {
-        id: grids.length + 1,
-        title: type === 'url' 
-          ? 'Generated from Content Analysis' 
-          : `${value.substring(0, 30)}${value.length > 30 ? '...' : ''}`,
-        description: 'An AI-generated semantic grid exploring interconnected themes and perspectives.',
-        videos: Math.floor(Math.random() * 10) + 5
-      };
-      
-      setGrids([newGrid, ...grids]);
-      
-      // Navigate to the new grid (mock)
-      // In a real implementation, you would navigate to the actual new grid ID
-      setTimeout(() => {
-        setIsProcessing(false);
-        setProcessingStage(null);
-        setProcessingMessages([]);
-        router.push(`/grids/${newGrid.id}`);
-      }, 500);
-      
-    } catch (err) {
-      console.error('Error processing prompt:', err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      setIsProcessing(false);
-      setProcessingStage(null);
-    }
-  };
-
-  // Helper function to add processing messages
-  const addProcessingMessage = (message: string) => {
-    setProcessingMessages(prev => [...prev, message]);
-  };
-
-  // Helper function to simulate processing stages
-  const simulateProcessingStage = (ms: number) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  };
-
   return (
-    <motion.div 
-      className="h-screen w-screen overflow-hidden bg-black text-white relative flex flex-col"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      {/* Header */}
-      <div className="p-4 flex justify-between items-center z-10">
-        <button 
-          onClick={goBack}
-          className="p-2 text-neutral-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={24} weight="duotone" />
-        </button>
-        
-        <div className="flex space-x-2">
-          <button 
-            onClick={createGrid}
-            className="p-2 text-neutral-400 hover:text-white transition-colors"
-          >
-            <Plus size={24} weight="duotone" />
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-black text-white">
+      <Header showBackButton={false} rightAction={
+        <Tabs 
+          value={viewMode} 
+          onChange={(value) => setViewMode(value as ViewMode)} 
+        />
+      } />
       
-      {/* Main content - shrinks when processing */}
-      <div className="flex-1 overflow-y-auto">
-        <AnimatePresence>
+      <div className="container mx-auto px-4 pt-6">
+        <div className="flex items-center justify-center mb-6">
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mr-2"></div>
+          <h1 className="text-xl font-medium tracking-tight">grids</h1>
+        </div>
+        
+        <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div 
-              className="absolute inset-0 flex items-center justify-center"
-              initial={{ opacity: 1 }}
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              className="flex justify-center items-center h-64"
             >
-              <div className="w-8 h-8 border-2 border-neutral-800 border-t-white rounded-full animate-spin"></div>
+              <Spinner />
             </motion.div>
           ) : (
-            <motion.div 
-              className={`h-full pb-20 transition-opacity duration-500 ${isProcessing ? 'opacity-30' : 'opacity-100'}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: isProcessing ? 0.3 : 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <div className="px-4 mb-6">
-                <h1 className="text-3xl font-light mb-1">Grids</h1>
-                <p className="text-neutral-400 text-sm">Collections of semantically related videos</p>
-              </div>
-              
-              <div className="px-4 space-y-4">
+            viewMode === 'carousel' ? (
+              <motion.div 
+                key="carousel"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6"
+              >
+                <div className="overflow-x-auto pb-4 scrollbar-hide">
+                  <div className="flex space-x-4 pl-1">
+                    {grids.map((grid) => (
+                      <motion.div
+                        key={grid.id}
+                        whileHover={{ y: -5 }}
+                        className="flex-shrink-0 w-72 bg-zinc-900 rounded-xl overflow-hidden shadow-lg"
+                      >
+                        <div className="relative h-40 bg-zinc-800">
+                          <Image 
+                            src={grid.thumbnail} 
+                            alt={grid.title}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="text-lg font-medium">{grid.title}</h3>
+                          <p className="text-sm text-zinc-400 mt-1">{grid.description}</p>
+                          <div className="mt-3 flex justify-between items-center">
+                            <span className="text-xs text-zinc-500">{grid.videoCount} videos</span>
+                            <span className="text-xs text-zinc-500">{grid.createdAt}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="grid"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="grid grid-cols-2 md:grid-cols-3 gap-3 pb-24"
+              >
                 {grids.map((grid) => (
-                  <Link href={`/grids/${grid.id}`} key={grid.id}>
-                    <motion.div 
-                      className="p-4 bg-neutral-900 rounded-lg cursor-pointer hover:bg-neutral-800 transition-colors border border-neutral-800"
-                      whileHover={{ y: -2 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <h2 className="text-xl font-light">{grid.title}</h2>
-                      <p className="text-sm text-neutral-400 mb-2">{grid.description}</p>
-                      <div className="text-xs text-neutral-500">{grid.videos} videos</div>
-                    </motion.div>
-                  </Link>
+                  <motion.div
+                    key={grid.id}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="relative aspect-square rounded-lg overflow-hidden"
+                  >
+                    <Image 
+                      src={grid.thumbnail} 
+                      alt={grid.title}
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-3">
+                      <h3 className="text-sm font-medium line-clamp-1">{grid.title}</h3>
+                      <p className="text-xs text-zinc-300 mt-0.5">{grid.videoCount} videos</p>
+                    </div>
+                  </motion.div>
                 ))}
-              </div>
-            </motion.div>
+              </motion.div>
+            )
           )}
         </AnimatePresence>
       </div>
       
-      {/* Always visible prompt interface */}
-      <div className="w-full">
-        <PromptInterface
-          onSubmit={handlePromptSubmit}
-          isProcessing={isProcessing}
-          processingStage={processingStage}
-          processingMessages={processingMessages}
-        />
-      </div>
-    </motion.div>
+      <style jsx global>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+    </div>
   );
 } 

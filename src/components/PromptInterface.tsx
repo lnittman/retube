@@ -1,78 +1,65 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  User, 
-  X, 
-  LinkSimple, 
-  TextT, 
-  CircleNotch, 
-  Check, 
-  Brain, 
-  MagnifyingGlass, 
-  Article,
-  Warning
-} from '@phosphor-icons/react';
+import { useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChatsCircle, ArrowCircleRight, LinkSimple, X } from '@phosphor-icons/react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { cn } from '@/lib/utils';
 
-type ProcessingStage = 'planning' | 'searching' | 'analyzing' | 'generating' | null;
+export type ProcessingStage = 
+  | 'analyzing prompt'
+  | 'searching videos'
+  | 'creating grid'
+  | 'finishing up'
+  | null;
 
-type PromptInterfaceProps = {
-  onSubmit: (value: string, type: 'url' | 'text') => Promise<void>;
+export interface PromptInterfaceProps {
+  onSubmit: (prompt: string) => void;
   isProcessing: boolean;
   processingStage: ProcessingStage;
-  processingMessages?: string[];
-};
+}
 
-export default function PromptInterface({
-  onSubmit,
-  isProcessing,
-  processingStage,
-  processingMessages = []
+export default function PromptInterface({ 
+  onSubmit, 
+  isProcessing, 
+  processingStage 
 }: PromptInterfaceProps) {
-  const [value, setValue] = useState('');
-  const [promptType, setPromptType] = useState<'url' | 'text'>('text');
+  const [userInput, setUserInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<'text' | 'url'>('text');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto focus the input initially
   useEffect(() => {
+    // Auto-focus the input field on mount
     if (inputRef.current) {
       inputRef.current.focus();
     }
   }, []);
 
-  // Clear error when input changes
-  useEffect(() => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserInput(e.target.value);
     if (error) setError(null);
-  }, [value]);
-
-  // Handle submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate
-    if (!value.trim()) {
-      setError('Please enter a prompt');
-      return;
-    }
-    
-    // Validate URL if URL type
-    if (promptType === 'url' && !isValidUrl(value)) {
-      setError('Please enter a valid URL');
-      return;
-    }
-    
-    try {
-      await onSubmit(value, promptType);
-      setValue(''); // Clear after successful submission
-    } catch (err) {
-      setError('Error processing prompt');
-      console.error(err);
-    }
   };
 
-  // Validate URL
-  const isValidUrl = (string: string) => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!userInput.trim()) {
+      setError('please enter a prompt or url');
+      return;
+    }
+    
+    if (inputMode === 'url' && !isValidURL(userInput)) {
+      setError('please enter a valid url');
+      return;
+    }
+    
+    onSubmit(userInput);
+    setUserInput('');
+  };
+
+  const isValidURL = (string: string) => {
     try {
       new URL(string);
       return true;
@@ -82,159 +69,115 @@ export default function PromptInterface({
   };
 
   return (
-    <div className="w-full bg-black bg-opacity-90 transition-all duration-300 ease-in-out border-t border-neutral-800 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-neutral-300 flex items-center">
-            <User className="w-5 h-5 mr-2" weight="duotone" />
-            <span className="text-sm">AI Grid Generator</span>
-          </div>
-        </div>
-        
-        {/* Error message */}
-        {error && (
-          <div className="mb-4 text-red-400 text-sm flex items-center">
-            <Warning className="w-4 h-4 mr-2" weight="duotone" />
-            {error}
-          </div>
-        )}
-        
-        {/* Processing indicator */}
-        {isProcessing && (
-          <div className="mb-4">
-            <div className="flex items-center justify-center space-x-6 mb-6">
-              <StageIndicator 
-                stage="planning" 
-                label="Planning" 
-                icon={<Brain className="w-5 h-5" weight="duotone" />}
-                current={processingStage} 
-              />
-              <StageIndicator 
-                stage="searching" 
-                label="Searching" 
-                icon={<MagnifyingGlass className="w-5 h-5" weight="duotone" />}
-                current={processingStage} 
-              />
-              <StageIndicator 
-                stage="analyzing" 
-                label="Analyzing" 
-                icon={<Article className="w-5 h-5" weight="duotone" />}
-                current={processingStage} 
-              />
-              <StageIndicator 
-                stage="generating" 
-                label="Generating" 
-                icon={<Check className="w-5 h-5" weight="duotone" />}
-                current={processingStage} 
-              />
+    <motion.div 
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="px-4 pb-4"
+    >
+      <div className="mx-auto max-w-2xl bg-zinc-900/90 backdrop-blur-lg border border-zinc-800 rounded-xl overflow-hidden">
+        <form onSubmit={handleSubmit} className="relative">
+          <AnimatePresence mode="wait">
+            {isProcessing && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              >
+                <StageIndicator stage={processingStage} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
+            <div className="flex space-x-1">
+              <button
+                type="button"
+                onClick={() => setInputMode('text')}
+                className={cn(
+                  "p-2 rounded-md",
+                  inputMode === 'text' 
+                    ? "bg-zinc-800 text-white" 
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                )}
+              >
+                <ChatsCircle size={18} weight={inputMode === 'text' ? "fill" : "regular"} />
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setInputMode('url')}
+                className={cn(
+                  "p-2 rounded-md",
+                  inputMode === 'url' 
+                    ? "bg-zinc-800 text-white" 
+                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                )}
+              >
+                <LinkSimple size={18} weight={inputMode === 'url' ? "fill" : "regular"} />
+              </button>
             </div>
             
-            {/* Processing messages */}
-            {processingMessages.length > 0 && (
-              <div className="mt-4 p-4 bg-neutral-900 rounded-lg border border-neutral-800 text-sm text-neutral-300 max-h-40 overflow-y-auto">
-                {processingMessages.map((message, i) => (
-                  <div key={i} className="mb-2 last:mb-0">
-                    {message}
-                  </div>
-                ))}
-              </div>
+            {error && (
+              <motion.p 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-400 px-2"
+              >
+                {error}
+              </motion.p>
             )}
           </div>
-        )}
-        
-        {/* Input form */}
-        {!isProcessing && (
-          <form onSubmit={handleSubmit} className="flex flex-col space-y-3">
-            <div className="flex items-center space-x-2 mb-2">
-              <button
-                type="button"
-                onClick={() => setPromptType('text')}
-                className={`px-3 py-1 rounded-full text-xs ${
-                  promptType === 'text'
-                    ? 'bg-neutral-700 text-white'
-                    : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800'
-                } transition-colors flex items-center`}
-              >
-                <TextT className="w-4 h-4 mr-1" weight="duotone" />
-                Text
-              </button>
-              <button
-                type="button"
-                onClick={() => setPromptType('url')}
-                className={`px-3 py-1 rounded-full text-xs ${
-                  promptType === 'url'
-                    ? 'bg-neutral-700 text-white'
-                    : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800'
-                } transition-colors flex items-center`}
-              >
-                <LinkSimple className="w-4 h-4 mr-1" weight="duotone" />
-                URL
-              </button>
-            </div>
+          
+          <div className="flex items-center px-3 py-2">
+            <Input
+              ref={inputRef}
+              value={userInput}
+              onChange={handleInputChange}
+              placeholder={inputMode === 'text' ? "ask for a video grid..." : "paste youtube url..."}
+              className="flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
+              type={inputMode === 'url' ? "url" : "text"}
+              autoComplete="off"
+              disabled={isProcessing}
+            />
             
-            <div className="flex items-center space-x-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder={
-                  promptType === 'url'
-                    ? 'Paste a video URL or website to analyze...'
-                    : 'Describe the grid you want to create...'
-                }
-                className="flex-1 py-2 px-3 bg-neutral-900 border border-neutral-800 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-700 text-white"
-              />
-              <button
-                type="submit"
-                className="p-2 bg-neutral-800 rounded-md hover:bg-neutral-700 transition-colors"
-                disabled={isProcessing}
-              >
-                <User className="w-5 h-5 text-neutral-300" weight="duotone" />
-              </button>
-            </div>
-          </form>
-        )}
+            <Button 
+              type="submit"
+              size="icon"
+              variant="ghost"
+              disabled={isProcessing || !userInput.trim()}
+              className="text-zinc-400 hover:text-white"
+            >
+              <ArrowCircleRight size={22} weight="fill" />
+            </Button>
+          </div>
+        </form>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-// Processing stage indicator component
-function StageIndicator({ 
-  stage, 
-  label, 
-  icon, 
-  current 
-}: { 
-  stage: ProcessingStage; 
-  label: string; 
-  icon: React.ReactNode;
-  current: ProcessingStage; 
-}) {
-  // Determine status of this stage
-  const isActive = current === stage;
-  const isPast = current === 'generating' && stage === 'analyzing' || 
-                 current === 'analyzing' && stage === 'searching' || 
-                 current === 'searching' && stage === 'planning';
-                 
+function StageIndicator({ stage }: { stage: ProcessingStage }) {
   return (
-    <div className={`flex flex-col items-center ${isActive ? 'text-white' : isPast ? 'text-neutral-400' : 'text-neutral-600'}`}>
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 ${
-        isActive 
-          ? 'bg-neutral-700 animate-pulse' 
-          : isPast 
-            ? 'bg-neutral-800' 
-            : 'bg-neutral-900'
-      }`}>
-        {isActive ? (
-          <CircleNotch className="w-5 h-5 animate-spin" weight="duotone" />
-        ) : (
-          icon
-        )}
-      </div>
-      <span className="text-xs">{label}</span>
+    <div className="flex flex-col items-center text-center px-4">
+      <motion.div
+        animate={{ 
+          scale: [1, 1.1, 1],
+          rotate: [0, 5, -5, 0] 
+        }}
+        transition={{ 
+          duration: 1.5, 
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        className="mb-3"
+      >
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
+          <ChatsCircle size={18} weight="fill" className="text-white" />
+        </div>
+      </motion.div>
+      <p className="text-sm font-medium">{stage ?? 'processing'}</p>
     </div>
   );
 } 
