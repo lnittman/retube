@@ -8,14 +8,15 @@ import {
   LinkSimple, 
   Palette,
   CircleNotch,
-  CaretRight,
   X,
   CaretDown,
   Star,
   StarHalf,
   Plus,
   Clock,
-  Heart
+  Heart,
+  Globe,
+  MagnifyingGlass
 } from '@phosphor-icons/react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -23,12 +24,22 @@ import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuGroup
+  DropdownMenuSeparator
 } from './ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from './ui/dialog';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from './ui/tabs';
 
 export type ProcessingStage = 
   | 'analyzing prompt'
@@ -71,14 +82,33 @@ export default function PromptInterface({
   const [colorPalettes, setColorPalettes] = useState<ColorPalette[]>([]);
   const [favoritePalettes, setFavoritePalettes] = useState<ColorPalette[]>([]);
   const [recentPalettes, setRecentPalettes] = useState<ColorPalette[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [paletteDialogOpen, setPaletteDialogOpen] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Load palettes on mount
+  // Load palettes and favorites on mount
   useEffect(() => {
     generateMockPalettes();
+    loadFavorites();
+    loadRecentPalettes();
   }, []);
+
+  // Save favorites whenever they change
+  useEffect(() => {
+    if (favoritePalettes.length > 0) {
+      saveFavorites();
+    }
+  }, [favoritePalettes]);
+
+  // Save recents whenever they change
+  useEffect(() => {
+    if (recentPalettes.length > 0) {
+      saveRecentPalettes();
+    }
+  }, [recentPalettes]);
 
   useEffect(() => {
     // Auto-focus the input field on mount
@@ -94,9 +124,73 @@ export default function PromptInterface({
     }
   }, [processingMessages]);
 
+  const loadFavorites = () => {
+    try {
+      const savedFavorites = localStorage.getItem('favoritePalettes');
+      if (savedFavorites) {
+        setFavoritePalettes(JSON.parse(savedFavorites));
+      }
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    }
+  };
+
+  const saveFavorites = () => {
+    try {
+      localStorage.setItem('favoritePalettes', JSON.stringify(favoritePalettes));
+    } catch (error) {
+      console.error('Error saving favorites:', error);
+    }
+  };
+
+  const loadRecentPalettes = () => {
+    try {
+      const savedRecents = localStorage.getItem('recentPalettes');
+      if (savedRecents) {
+        setRecentPalettes(JSON.parse(savedRecents));
+      }
+    } catch (error) {
+      console.error('Error loading recent palettes:', error);
+    }
+  };
+
+  const saveRecentPalettes = () => {
+    try {
+      localStorage.setItem('recentPalettes', JSON.stringify(recentPalettes));
+    } catch (error) {
+      console.error('Error saving recent palettes:', error);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInput(e.target.value);
     if (error) setError(null);
+  };
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value.toLowerCase());
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    // Filter palettes based on search query
+    const matchingPalettes = colorPalettes.filter(palette => 
+      palette.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      palette.mood?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      palette.trend?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      palette.source?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    if (matchingPalettes.length > 0) {
+      // Select the first matching palette
+      togglePalette(matchingPalettes[0]);
+      setSearchQuery('');
+    }
+    
+    // Open the full palette dialog to show all matches
+    setPaletteDialogOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -223,8 +317,16 @@ export default function PromptInterface({
     ];
     
     setColorPalettes(mockPalettes);
-    setFavoritePalettes(mockPalettes.filter(p => p.isFavorite));
-    setRecentPalettes(mockPalettes.filter(p => p.isRecent));
+    
+    // Only update favorites and recents if not already loaded from localStorage
+    if (favoritePalettes.length === 0) {
+      setFavoritePalettes(mockPalettes.filter(p => p.isFavorite));
+    }
+    
+    if (recentPalettes.length === 0) {
+      setRecentPalettes(mockPalettes.filter(p => p.isRecent));
+    }
+    
     setGeneratingPalette(false);
   };
   
@@ -308,6 +410,16 @@ export default function PromptInterface({
     </div>
   );
 
+  // Filter palettes based on search query for the full dialog
+  const filteredPalettes = searchQuery
+    ? colorPalettes.filter(palette =>
+        palette.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        palette.mood?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        palette.trend?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        palette.source?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : colorPalettes;
+
   return (
     <motion.div 
       initial={{ y: 20, opacity: 0 }}
@@ -382,7 +494,7 @@ export default function PromptInterface({
                 <LinkSimple size={18} weight={inputMode === 'url' ? "fill" : "regular"} />
               </button>
               
-              {/* Palette dropdown button */}
+              {/* Palette dropdown with simplified search */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -400,84 +512,164 @@ export default function PromptInterface({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start" 
-                  className="w-80 bg-zinc-900 border-zinc-800 p-2"
+                  className="w-64 bg-zinc-900 border-zinc-800 p-2"
                   sideOffset={8}
                 >
-                  <DropdownMenuLabel className="flex items-center justify-between text-zinc-400">
-                    <span>Color Palettes</span>
+                  <p className="text-xs text-zinc-400 mb-2">color palettes</p>
+                  
+                  {/* Simple search form */}
+                  <form onSubmit={handleSearchSubmit} className="flex gap-1 mb-2">
                     <Input 
-                      placeholder="Search palettes..." 
-                      className="w-40 h-7 text-xs bg-zinc-800 border-0"
+                      ref={searchInputRef}
+                      value={searchQuery}
+                      onChange={handleSearchInputChange}
+                      placeholder="search palettes..." 
+                      className="h-8 text-xs bg-zinc-800 border-0 flex-1"
                     />
-                  </DropdownMenuLabel>
+                    <button
+                      type="submit"
+                      className="p-1 rounded-md bg-zinc-800 text-zinc-400 hover:text-white"
+                    >
+                      <MagnifyingGlass size={16} />
+                    </button>
+                    
+                    <Dialog open={paletteDialogOpen} onOpenChange={setPaletteDialogOpen}>
+                      <DialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="p-1 rounded-md bg-zinc-800 text-zinc-400 hover:text-white"
+                        >
+                          <Globe size={16} />
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-zinc-900 border-zinc-800 text-white p-4 max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                        <DialogHeader>
+                          <DialogTitle className="text-white text-lg mb-2">color palettes</DialogTitle>
+                        </DialogHeader>
+                        
+                        <div className="flex gap-2 mb-4">
+                          <Input 
+                            value={searchQuery}
+                            onChange={handleSearchInputChange}
+                            placeholder="search palettes..." 
+                            className="h-8 text-xs bg-zinc-800 border-0 flex-1"
+                          />
+                        </div>
+                        
+                        <Tabs defaultValue="all" className="flex-1 overflow-hidden flex flex-col">
+                          <TabsList className="bg-zinc-800 mb-4">
+                            <TabsTrigger value="favorites" className="text-xs lowercase">
+                              <Heart size={14} className="mr-1" weight="fill" />
+                              favorites
+                            </TabsTrigger>
+                            <TabsTrigger value="recents" className="text-xs lowercase">
+                              <Clock size={14} className="mr-1" />
+                              recents
+                            </TabsTrigger>
+                            <TabsTrigger value="all" className="text-xs lowercase">
+                              <Palette size={14} className="mr-1" />
+                              all
+                            </TabsTrigger>
+                          </TabsList>
+                          
+                          <div className="flex-1 overflow-hidden">
+                            <TabsContent value="favorites" className="mt-0 h-full overflow-y-auto">
+                              {favoritePalettes.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-1">
+                                  {favoritePalettes
+                                    .filter(p => !searchQuery || 
+                                      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                      p.mood?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                    .map(palette => (
+                                      <PaletteItem 
+                                        key={palette.id} 
+                                        palette={palette} 
+                                        isSelected={selectedPalettes.some(p => p.id === palette.id)}
+                                      />
+                                    ))
+                                  }
+                                </div>
+                              ) : (
+                                <div className="text-center p-4 text-zinc-500">
+                                  <p className="text-sm">no favorites yet</p>
+                                  <p className="text-xs mt-1">star palettes to save them here</p>
+                                </div>
+                              )}
+                            </TabsContent>
+                            
+                            <TabsContent value="recents" className="mt-0 h-full overflow-y-auto">
+                              {recentPalettes.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-1">
+                                  {recentPalettes
+                                    .filter(p => !searchQuery || 
+                                      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                      p.mood?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                    .map(palette => (
+                                      <PaletteItem 
+                                        key={palette.id} 
+                                        palette={palette} 
+                                        isSelected={selectedPalettes.some(p => p.id === palette.id)}
+                                      />
+                                    ))
+                                  }
+                                </div>
+                              ) : (
+                                <div className="text-center p-4 text-zinc-500">
+                                  <p className="text-sm">no recent palettes</p>
+                                  <p className="text-xs mt-1">recently used palettes will appear here</p>
+                                </div>
+                              )}
+                            </TabsContent>
+                            
+                            <TabsContent value="all" className="mt-0 h-full overflow-y-auto">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-1">
+                                {filteredPalettes.map(palette => (
+                                  <PaletteItem 
+                                    key={palette.id} 
+                                    palette={palette} 
+                                    isSelected={selectedPalettes.some(p => p.id === palette.id)}
+                                  />
+                                ))}
+                              </div>
+                            </TabsContent>
+                          </div>
+                        </Tabs>
+                        
+                        <div className="mt-4 flex justify-between">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 p-2 text-xs text-green-500 hover:bg-zinc-800 rounded-md"
+                          >
+                            <Plus size={14} />
+                            create new palette
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setPaletteDialogOpen(false)}
+                            className="flex items-center gap-1 p-2 text-xs text-zinc-400 hover:bg-zinc-800 rounded-md"
+                          >
+                            close
+                          </button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </form>
+                  
                   <DropdownMenuSeparator className="bg-zinc-800 my-2" />
                   
-                  {/* Favorites section */}
-                  {favoritePalettes.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center gap-2 px-2 py-1">
-                        <Heart size={14} weight="fill" className="text-red-500" />
-                        <span className="text-xs text-zinc-400">Favorites</span>
-                      </div>
-                      <div className="mt-1 space-y-1 max-h-40 overflow-y-auto pr-1">
-                        {favoritePalettes.map(palette => (
-                          <PaletteItem 
-                            key={palette.id} 
-                            palette={palette} 
-                            isSelected={selectedPalettes.some(p => p.id === palette.id)}
-                          />
-                        ))}
-                      </div>
-                      <DropdownMenuSeparator className="bg-zinc-800 my-2" />
-                    </div>
-                  )}
-                  
-                  {/* Recents section */}
-                  {recentPalettes.length > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center gap-2 px-2 py-1">
-                        <Clock size={14} className="text-zinc-400" />
-                        <span className="text-xs text-zinc-400">Recents</span>
-                      </div>
-                      <div className="mt-1 space-y-1 max-h-40 overflow-y-auto pr-1">
-                        {recentPalettes.map(palette => (
-                          <PaletteItem 
-                            key={palette.id} 
-                            palette={palette} 
-                            isSelected={selectedPalettes.some(p => p.id === palette.id)}
-                          />
-                        ))}
-                      </div>
-                      <DropdownMenuSeparator className="bg-zinc-800 my-2" />
-                    </div>
-                  )}
-                  
-                  {/* All palettes section */}
-                  <div>
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <Palette size={14} className="text-zinc-400" />
-                      <span className="text-xs text-zinc-400">All Palettes</span>
-                    </div>
-                    <div className="mt-1 space-y-1 max-h-60 overflow-y-auto pr-1">
-                      {colorPalettes.map(palette => (
+                  {/* Quick palette selection */}
+                  <div className="space-y-2 max-h-44 overflow-y-auto">
+                    {(searchQuery ? filteredPalettes : [...favoritePalettes, ...recentPalettes].slice(0, 4))
+                      .map(palette => (
                         <PaletteItem 
                           key={palette.id} 
                           palette={palette} 
                           isSelected={selectedPalettes.some(p => p.id === palette.id)}
                         />
-                      ))}
-                    </div>
+                      ))
+                    }
                   </div>
-                  
-                  <DropdownMenuSeparator className="bg-zinc-800 my-2" />
-                  
-                  {/* Create new palette button */}
-                  <DropdownMenuItem 
-                    className="flex items-center gap-2 p-2 cursor-pointer hover:bg-zinc-800"
-                  >
-                    <Plus size={16} className="text-green-500" />
-                    <span className="text-sm">Create New Palette</span>
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
