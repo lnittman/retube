@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { searchWithPerplexity, extractVideoContent } from './perplexity';
 
 // Types
 type AgentTask = {
@@ -14,11 +15,12 @@ type AgentTask = {
 };
 
 type AgentConfig = {
-  openRouterApiKey: string;
+  perplexityApiKey: string;
   geminiApiKey: string;
   plannerModel?: string;
   analyzerModel?: string;
   multimodalModel?: string;
+  searchModel?: string;
 };
 
 // Agent class for handling the multi-step AI process
@@ -30,9 +32,10 @@ export class AIAgent {
   constructor(config: AgentConfig) {
     this.config = {
       ...config,
-      plannerModel: config.plannerModel || 'anthropic/claude-3-opus',
-      analyzerModel: config.analyzerModel || 'anthropic/claude-3-haiku',
-      multimodalModel: config.multimodalModel || 'gemini-2-flash',
+      plannerModel: config.plannerModel || 'gemini-1.5-flash',
+      analyzerModel: config.analyzerModel || 'gemini-1.5-flash',
+      multimodalModel: config.multimodalModel || 'gemini-1.5-pro',
+      searchModel: config.searchModel || 'sonar-small-online',
     };
 
     if (this.config.geminiApiKey) {
@@ -64,7 +67,7 @@ export class AIAgent {
     try {
       // Planning stage
       await this.updateTaskStatus('planning');
-      this.addMessage("Planning approach to analyze content and create semantic relationships");
+      this.addMessage("Planning approach using Gemini 1.5 Flash");
       const plan = await this.planApproach();
       
       // Searching stage
@@ -72,6 +75,8 @@ export class AIAgent {
       
       if (this.task.inputType === 'url') {
         this.addMessage(`Fetching content from URL using r.jina.ai/${encodeURIComponent(this.task.input)}`);
+      } else {
+        this.addMessage("Performing web search with Perplexity API");
       }
       
       this.addMessage("Searching for related content and identifying key themes");
@@ -80,13 +85,13 @@ export class AIAgent {
       
       // Analyzing stage 
       await this.updateTaskStatus('analyzing');
-      this.addMessage("Analyzing visual and textual components with Gemini-2-flash");
+      this.addMessage("Analyzing visual and textual components with Gemini 1.5 Pro");
       this.addMessage("Detecting patterns and relationships between content pieces");
       const analysis = await this.analyzeContent();
       
       // Generating stage
       await this.updateTaskStatus('generating');
-      this.addMessage("Generating semantic grid structure with optimized clusters");
+      this.addMessage("Generating semantic grid structure with Gemini 1.5 Pro");
       this.addMessage("Finalizing grid with metadata and relationships");
       const grid = await this.generateGrid();
       
@@ -123,54 +128,60 @@ export class AIAgent {
     }
   }
   
-  // Planning stage - uses OpenRouter's Claude to create a plan
+  // Planning stage - uses Gemini to create a plan
   private async planApproach(): Promise<any> {
-    if (!this.task) return null;
+    if (!this.task || !this.geminiApi) return this.mockPlanApproach();
     
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.config.openRouterApiKey}`,
-          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://retube.app',
-          'X-Title': 'Retube Grid Generator',
-        },
-        body: JSON.stringify({
-          model: this.config.plannerModel,
-          messages: [
-            {
-              role: 'system',
-              content: `You are an AI assistant that creates structured plans for analyzing content and creating semantic video grids. 
-              Your task is to create a detailed plan for the following request. Focus on identifying:
-              1. Key themes and concepts
-              2. Types of content to search for
-              3. Visual and audio elements to analyze
-              4. Potential grid structure and organization
-              5. Criteria for clustering related content`
-            },
-            {
-              role: 'user',
-              content: this.task.inputType === 'url' 
-                ? `I need a plan to analyze the content at: ${this.task.input} and create a semantic video grid based on it.`
-                : `I need a plan to create a semantic video grid based on this topic: ${this.task.input}`
-            }
-          ],
-          max_tokens: 1000,
-        }),
+      const model = this.geminiApi.getGenerativeModel({
+        model: this.config.plannerModel as string,
       });
       
-      if (!response.ok) {
-        throw new Error(`OpenRouter API error: ${response.status}`);
+      const prompt = `
+      You are an AI assistant that creates structured plans for analyzing content and creating semantic video grids. 
+      Your task is to create a detailed plan for the following request. Focus on identifying:
+      1. Key themes and concepts
+      2. Types of content to search for
+      3. Visual and audio elements to analyze
+      4. Potential grid structure and organization
+      5. Criteria for clustering related content
+      
+      Request: ${this.task.inputType === 'url' 
+        ? `Analyze the content at: ${this.task.input} and create a semantic video grid based on it.`
+        : `Create a semantic video grid based on this topic: ${this.task.input}`}
+      
+      Provide your response as JSON with the following structure:
+      {
+        "plan": {
+          "overview": "Summary of the plan",
+          "steps": ["Step 1", "Step 2", ...],
+          "themes": ["Theme 1", "Theme 2", ...],
+          "contentTypes": ["Type 1", "Type 2", ...],
+          "clusterCriteria": ["Criteria 1", "Criteria 2", ...]
+        }
       }
+      `;
       
-      const data = await response.json();
-      const planContent = data.choices[0].message.content;
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
       
-      return {
-        content: planContent,
-        structure: this.extractPlanStructure(planContent)
-      };
+      try {
+        // Try to parse JSON from the response
+        const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
+                         text.match(/\{[\s\S]*\}/);
+        
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        } else {
+          return {
+            content: text,
+            structure: this.extractPlanStructure(text)
+          };
+        }
+      } catch (parseError) {
+        console.error('Error parsing Gemini plan response:', parseError);
+        return this.mockPlanApproach();
+      }
     } catch (error) {
       console.error('Error in planning stage:', error);
       // Fallback to mock plan
@@ -180,8 +191,8 @@ export class AIAgent {
   
   // Extract structured information from the plan
   private extractPlanStructure(planContent: string): any {
-    // In a real implementation, you might use Gemini to extract structured data from the plan
-    // Here we're just creating a mock structure
+    // If we couldn't get structured JSON directly, try to extract structure from text
+    // This is a simplified version - in production you would use Gemini to extract structured data
     return {
       themes: ['theme1', 'theme2', 'theme3'],
       contentTypes: ['videos', 'articles', 'images'],
@@ -193,33 +204,23 @@ export class AIAgent {
   private mockPlanApproach(): any {
     if (!this.task) return null;
     
-    const planTemplate = `
-      Task: ${this.task.inputType === 'url' ? 'Analyze the content at URL: ' + this.task.input : 'Create a grid for topic: ' + this.task.input}
-      
-      1. Understanding the request
-      2. Key themes to explore
-      3. Types of videos to include
-      4. Potential cluster categories
-      5. Multimodal analysis requirements
-    `;
-    
     return {
-      content: planTemplate,
-      structure: {
+      plan: {
+        overview: `Plan for ${this.task.inputType === 'url' ? 'analyzing the content at URL: ' + this.task.input : 'creating a grid for topic: ' + this.task.input}`,
+        steps: [
+          'Extract key themes from the input',
+          'Search for semantically similar content',
+          'Group content into meaningful clusters',
+          'Create a coherent grid structure'
+        ],
         themes: ['innovation', 'design', 'technology', 'creativity'],
         contentTypes: ['video', 'article', 'image', 'audio'],
         clusterCriteria: ['topic', 'style', 'platform', 'creator']
-      },
-      steps: [
-        'Extract key themes from the input',
-        'Search for semantically similar content',
-        'Group content into meaningful clusters',
-        'Create a coherent grid structure'
-      ]
+      }
     };
   }
   
-  // Searching stage - finds relevant content using r.jina.ai for URLs
+  // Searching stage - uses Perplexity for search and r.jina.ai for URLs
   private async searchContent(): Promise<any> {
     if (!this.task) return null;
     
@@ -242,8 +243,32 @@ export class AIAgent {
           relatedVideos: this.extractVideosFromJinaResponse(data)
         };
       } else {
-        // For text inputs, use a semantic search
-        return this.mockSearchResults();
+        // For text inputs, use Perplexity API for semantic search
+        const searchQuery = `Find videos, content creators, and trends related to: ${this.task.input}. Focus on high-quality visual content.`;
+        
+        const perplexityResponse = await searchWithPerplexity({
+          query: searchQuery,
+          model: this.config.searchModel as string,
+          maxTokens: 1000,
+          focus: ['videos', 'multimedia', 'content creators'],
+          includeAnswer: true,
+          includeCitations: true,
+        });
+        
+        if (perplexityResponse.error) {
+          throw new Error(`Perplexity API error: ${perplexityResponse.error}`);
+        }
+        
+        // Process the Perplexity response to extract relevant information
+        const extractedContent = extractVideoContent(perplexityResponse);
+        
+        return {
+          searchResults: perplexityResponse.answer,
+          citations: perplexityResponse.citations || [],
+          relatedVideos: extractedContent.videos,
+          creators: extractedContent.creators,
+          trends: extractedContent.trends
+        };
       }
     } catch (error) {
       console.error('Error in search stage:', error);
@@ -316,14 +341,14 @@ export class AIAgent {
     };
   }
   
-  // Analyzing stage - performs multimodal analysis using Gemini-2-flash
+  // Analyzing stage - performs multimodal analysis using Gemini
   private async analyzeContent(): Promise<any> {
-    if (!this.task || !this.geminiApi) return null;
+    if (!this.task || !this.geminiApi) return this.mockAnalyzeContent();
     
     try {
-      // Use Gemini-2-flash for multimodal analysis
+      // Use Gemini 1.5 Pro for multimodal analysis
       const model = this.geminiApi.getGenerativeModel({
-        model: this.config.multimodalModel,
+        model: this.config.multimodalModel as string,
         safetySettings: [
           {
             category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
@@ -360,8 +385,31 @@ export class AIAgent {
         3. Audio Elements - Identify sound design, music, or spoken word patterns
         4. Semantic Clusters - Group the content into meaningful clusters based on theme, style, or approach
         5. Emotional Tone - Describe the overall emotional tone and feel
+        6. Color Palettes - Suggest 3-5 color palettes that would match the content's aesthetic
         
-        Format your response as structured JSON.
+        Format your response as structured JSON with the schema:
+        {
+          "contentAnalysis": {
+            "themes": ["theme1", "theme2", ...],
+            "visualElements": ["element1", "element2", ...],
+            "audioElements": ["element1", "element2", ...],
+            "emotionalTone": "description",
+            "pacing": "description"
+          },
+          "semanticClusters": [
+            {
+              "name": "cluster name",
+              "videos": ["video_id1", "video_id2", ...]
+            }
+          ],
+          "colorPalettes": [
+            {
+              "name": "palette name", 
+              "colors": ["#hex1", "#hex2", ...], 
+              "mood": "description"
+            }
+          ]
+        }
       `;
       
       const result = await model.generateContent(prompt);
@@ -422,67 +470,83 @@ export class AIAgent {
           name: 'Cultural Impact',
           videos: ['v4']
         }
+      ],
+      colorPalettes: [
+        {
+          name: 'tech minimal',
+          colors: ['#0F0F0F', '#232D3F', '#005B41', '#008170', '#F1EFEF'],
+          mood: 'professional and focused'
+        },
+        {
+          name: 'creative vibrance',
+          colors: ['#7C9D96', '#E9B384', '#19376D', '#A5D7E8', '#576CBC'],
+          mood: 'inspiring and energizing'
+        },
+        {
+          name: 'calm clarity',
+          colors: ['#F9F7F7', '#DBE2EF', '#3F72AF', '#112D4E', '#B9D7EA'],
+          mood: 'thoughtful and serene'
+        }
       ]
     };
   }
   
   // Generating stage - creates the final grid
   private async generateGrid(): Promise<any> {
-    if (!this.task) return null;
+    if (!this.task || !this.geminiApi) return this.mockGenerateGrid();
     
     try {
-      // In a real implementation, this would use OpenRouter to generate a final grid
-      // based on the analysis from the previous stages
-      
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.config.openRouterApiKey}`,
-          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://retube.app',
-          'X-Title': 'Retube Grid Generator',
-        },
-        body: JSON.stringify({
-          model: this.config.plannerModel,
-          messages: [
-            {
-              role: 'system',
-              content: `You are an AI assistant that creates structured semantic grids for organizing content.
-                Your task is to create a final grid structure based on the analysis provided.
-                The grid should have:
-                1. A concise but descriptive title
-                2. A brief description
-                3. A set of clusters, each with a name and list of videos
-                4. A set of tags for categorization
-                Your response should be in JSON format without any explanatory text.`
-            },
-            {
-              role: 'user',
-              content: `Create a semantic grid for: ${this.task.input}
-                
-                Here is the analysis:
-                ${JSON.stringify(this.task.result?.analysis || this.mockAnalyzeContent(), null, 2)}
-                
-                Here are the content items:
-                ${JSON.stringify(this.task.result?.searchResults?.relatedVideos || 
-                  this.mockSearchResults().relatedVideos, null, 2)}`
-            }
-          ],
-          max_tokens: 1000,
-        }),
+      // Use Gemini 1.5 Pro for grid generation
+      const model = this.geminiApi.getGenerativeModel({
+        model: this.config.multimodalModel as string,
       });
       
-      if (!response.ok) {
-        throw new Error(`OpenRouter API error: ${response.status}`);
-      }
+      const analysisResults = this.task.result?.analysis || this.mockAnalyzeContent();
+      const searchResults = this.task.result?.searchResults || this.mockSearchResults();
       
-      const data = await response.json();
-      const gridContent = data.choices[0].message.content;
+      const prompt = `
+        Create a semantic grid structure for organizing a collection of videos.
+        
+        Input topic: ${this.task.input}
+        
+        Analysis results: ${JSON.stringify(analysisResults, null, 2)}
+        
+        Search results: ${JSON.stringify(searchResults, null, 2)}
+        
+        Create a grid with the following structure:
+        - A concise but descriptive title
+        - A brief description
+        - A set of clusters, each with a name and list of videos
+        - A set of tags for categorization
+        - A recommended color palette based on the content
+        
+        Return your response in JSON format with this schema:
+        {
+          "title": "Grid title",
+          "description": "Grid description",
+          "clusters": [
+            {
+              "name": "Cluster name",
+              "videos": [
+                {"id": "video_id", "title": "Video title", "platform": "Platform name"}
+              ]
+            }
+          ],
+          "tags": ["tag1", "tag2", ...],
+          "colorPalette": {
+            "name": "Palette name",
+            "colors": ["#hex1", "#hex2", ...]
+          }
+        }
+      `;
+      
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
       
       try {
         // Try to parse JSON from the response
-        const jsonMatch = gridContent.match(/```json\n([\s\S]*?)\n```/) || 
-                           gridContent.match(/\{[\s\S]*\}/);
+        const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
+                         text.match(/\{[\s\S]*\}/);
         
         if (jsonMatch) {
           const gridData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
@@ -493,7 +557,7 @@ export class AIAgent {
           };
         } else {
           // If we can't parse JSON, create a structured grid from the text
-          return this.createStructuredGrid(gridContent);
+          return this.createStructuredGrid(text);
         }
         
       } catch (parseError) {
@@ -535,6 +599,10 @@ export class AIAgent {
         }
       ],
       tags: ['ai-generated', 'semantic-analysis', 'multimodal'],
+      colorPalette: {
+        name: 'default',
+        colors: ['#121212', '#2D3047', '#419D78', '#E0A458', '#FFDBB5']
+      },
       createdAt: new Date()
     };
   }
@@ -570,6 +638,10 @@ export class AIAgent {
         }
       ],
       tags: ['ai-generated', 'semantic-analysis', 'multimodal'],
+      colorPalette: {
+        name: 'tech minimal',
+        colors: ['#0F0F0F', '#232D3F', '#005B41', '#008170', '#F1EFEF']
+      },
       createdAt: new Date()
     };
   }
@@ -578,7 +650,7 @@ export class AIAgent {
 // Export a function to process prompts for the API route
 export async function processPrompt(input: string, inputType: 'url' | 'text'): Promise<AgentTask> {
   const agent = new AIAgent({
-    openRouterApiKey: process.env.OPENROUTER_API_KEY || '',
+    perplexityApiKey: process.env.PERPLEXITY_API_KEY || '',
     geminiApiKey: process.env.GEMINI_API_KEY || '',
   });
   
@@ -588,15 +660,15 @@ export async function processPrompt(input: string, inputType: 'url' | 'text'): P
 
 // Factory function to create an agent with environment variables
 export async function createAgent(): Promise<AIAgent> {
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY || '';
+  const perplexityApiKey = process.env.PERPLEXITY_API_KEY || '';
   const geminiApiKey = process.env.GEMINI_API_KEY || '';
   
-  if (!openRouterApiKey || !geminiApiKey) {
+  if (!perplexityApiKey || !geminiApiKey) {
     throw new Error('Missing required API keys for AI agent');
   }
   
   return new AIAgent({
-    openRouterApiKey,
+    perplexityApiKey,
     geminiApiKey
   });
 } 

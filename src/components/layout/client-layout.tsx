@@ -18,8 +18,13 @@ export default function ClientLayout({
   const [processingStage, setProcessingStage] = useState<ProcessingStage>(null);
   const [processingMessages, setProcessingMessages] = useState<string[]>([]);
   
-  // Hide header, navigation and prompt interface on home page
+  // Check for specific pages
   const isHomePage = pathname === '/';
+  const isGridsPage = pathname === '/grids';
+  const isGridDetailPage = pathname.startsWith('/grids/') && pathname !== '/grids/create';
+  
+  // Pages that use custom headers
+  const usesCustomHeader = isHomePage || isGridsPage || isGridDetailPage;
   
   const handleSubmit = async (prompt: string) => {
     // Clear previous messages
@@ -106,11 +111,11 @@ export default function ClientLayout({
       forcedTheme="dark"
     >
       <div className="flex flex-col min-h-screen">
-        {!isHomePage && <Header />}
+        {!usesCustomHeader && <Header />}
         <main className={`flex-1 ${!isHomePage ? 'pb-24' : ''}`}>
           {children}
         </main>
-        {!isHomePage && <Navigation />}
+        {!usesCustomHeader && <Navigation />}
         {!isHomePage && (
           <div className="fixed bottom-16 left-0 right-0 z-30">
             <PromptInterface 

@@ -5,9 +5,10 @@ Retube is an AI-native single page application that reimagines video discovery a
 ## Features
 
 - **Semantic Video Clustering**: Groups videos based on AI-derived attributes
-- **Multimodal Content Understanding**: Uses Gemini API for comprehensive analysis
+- **Multimodal Content Understanding**: Uses Gemini 1.5 Pro for comprehensive analysis
 - **Grid-Based Organization**: For creating, discovering, and sharing video collections
 - **Structured AI Outputs**: Ensures consistent user experiences
+- **Color Palette Integration**: Interactive color palettes tied to content themes
 - **Minimal, Enigmatic Interface**: Focused on horizontal transitions and dark themes
 
 ## Tech Stack
@@ -16,7 +17,7 @@ Retube is an AI-native single page application that reimagines video discovery a
 - **Database**: Prisma ORM with PostgreSQL
 - **Caching**: Upstash Redis
 - **Storage**: Vercel Blob Storage
-- **AI**: OpenRouter API (Claude models), Gemini API (Gemini 2 Flash)
+- **AI**: Perplexity API (for web search), Gemini API (1.5 Pro & Flash models)
 - **Content Fetching**: r.jina.ai
 
 ## Getting Started
@@ -25,7 +26,7 @@ Retube is an AI-native single page application that reimagines video discovery a
 
 - Node.js 18.17 or later
 - npm or yarn
-- API keys for OpenRouter and Gemini
+- API keys for Perplexity and Gemini
 
 ### Installation
 
@@ -42,7 +43,7 @@ Retube is an AI-native single page application that reimagines video discovery a
 
 3. Create a `.env.local` file in the root directory with your API keys:
    ```
-   OPENROUTER_API_KEY=your-openrouter-api-key
+   PERPLEXITY_API_KEY=your-perplexity-api-key
    GEMINI_API_KEY=your-gemini-api-key
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    ```
@@ -88,10 +89,10 @@ The application is deployed on Vercel. To deploy:
 
 Retube implements a multi-stage AI agent for processing content and generating semantic grids:
 
-1. **Planning** - Using Claude 3 via OpenRouter to understand the request
-2. **Searching** - Finding relevant content using r.jina.ai for URL analysis
-3. **Analyzing** - Examining visual and semantic elements using Gemini 2 Flash
-4. **Generating** - Creating a cohesive grid structure with Claude 3
+1. **Planning** - Using Gemini 1.5 Flash to understand the request and plan the approach
+2. **Searching** - Finding relevant content using Perplexity for text inputs and r.jina.ai for URL analysis
+3. **Analyzing** - Examining visual and semantic elements using Gemini 1.5 Pro
+4. **Generating** - Creating a cohesive grid structure with Gemini 1.5 Pro, including color palettes and semantic clusters
 
 ## License
 
@@ -102,6 +103,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Next.js](https://nextjs.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [shadcn/ui](https://ui.shadcn.com/)
-- [OpenRouter](https://openrouter.ai/)
+- [Perplexity API](https://perplexity.ai/)
 - [Gemini API](https://ai.google.dev/)
 - [Jina AI](https://jina.ai/)

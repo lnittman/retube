@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Info, X } from 'lucide-react';
+import { ArrowLeft, Info, X } from '@phosphor-icons/react';
 
 // Mock data function
 function getGrid(id: string) {
@@ -133,32 +133,32 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="h-screen w-screen bg-black text-white overflow-hidden relative">
-      {/* Back button */}
-      <motion.button
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        onClick={() => router.push('/grids')}
-        className="absolute top-8 left-8 z-50 flex items-center text-sm text-white/60 hover:text-white transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        back to grids
-      </motion.button>
-
-      {/* Info button */}
-      <motion.button
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        onClick={() => setShowInfo(true)}
-        className="absolute top-8 right-8 z-50 flex items-center text-sm text-white/60 hover:text-white transition-colors"
-      >
-        <Info className="h-4 w-4 mr-2" />
-        info
-      </motion.button>
-
-      {/* Grid title */}
-      <div className="absolute top-8 left-0 right-0 text-center">
-        <h1 className="font-serif text-xl">{grid.title}</h1>
-      </div>
+      {/* Consistent header */}
+      <header className="sticky top-0 z-50 w-full bg-black/80 backdrop-blur-md border-b border-zinc-800 py-4">
+        <div className="container px-4 mx-auto flex items-center justify-between">
+          {/* Left back button */}
+          <button 
+            onClick={() => router.push('/grids')}
+            className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          
+          {/* Centered logo */}
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-pink-500"></div>
+            <h1 className="text-lg font-medium tracking-tight">retube</h1>
+          </div>
+          
+          {/* Right info button */}
+          <button 
+            onClick={() => setShowInfo(true)}
+            className="w-10 h-10 flex items-center justify-center text-zinc-400 hover:text-white"
+          >
+            <Info size={24} />
+          </button>
+        </div>
+      </header>
 
       {/* Info modal */}
       <AnimatePresence>
@@ -174,7 +174,7 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
                 onClick={() => setShowInfo(false)}
                 className="absolute top-4 right-4 text-white/60 hover:text-white"
               >
-                <X className="h-5 w-5" />
+                <X size={20} />
               </button>
               
               <h2 className="font-serif text-2xl mb-4">{grid.title}</h2>
@@ -207,8 +207,13 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
       </AnimatePresence>
 
       {/* Main content - Horizontal video scroll */}
-      <div className="h-full w-full flex items-center justify-center">
+      <div className="h-[calc(100vh-64px)] w-full flex items-center justify-center pt-4">
         <div className="w-full max-w-6xl px-4">
+          {/* Grid title display */}
+          <div className="text-center mb-6">
+            <h2 className="text-lg font-medium text-zinc-300">{grid.title}</h2>
+          </div>
+          
           {/* Current video preview */}
           <AnimatePresence mode="wait">
             <motion.div
@@ -217,7 +222,7 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className="relative w-full aspect-video mb-8 bg-gray-800 rounded-lg overflow-hidden"
+              className="relative w-full aspect-video mb-6 bg-gray-800 rounded-lg overflow-hidden"
             >
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-white/30 text-xs">
@@ -231,10 +236,10 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
           </AnimatePresence>
 
           {/* Video title */}
-          <div className="text-center mb-8">
-            <h2 className="font-serif text-xl">
+          <div className="text-center mb-6">
+            <h3 className="text-base font-medium">
               {grid.videos[activeVideoIndex].title}
-            </h2>
+            </h3>
           </div>
 
           {/* Video navigation */}
@@ -243,7 +248,7 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
               onClick={prevVideo}
               className="h-10 w-10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft size={20} />
             </button>
             
             <div className="flex space-x-2">
@@ -251,26 +256,26 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
                 <button
                   key={index}
                   onClick={() => scrollToVideo(index)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    activeVideoIndex === index ? 'bg-white' : 'bg-white/30'
+                  className={`h-2 w-2 rounded-full ${
+                    activeVideoIndex === index ? 'bg-white' : 'bg-white/30 hover:bg-white/50'
                   }`}
+                  aria-label={`Go to video ${index + 1}`}
                 />
               ))}
             </div>
             
             <button
               onClick={nextVideo}
-              className="h-10 w-10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+              className="h-10 w-10 flex items-center justify-center text-white/70 hover:text-white transition-colors rotate-180"
             >
-              <ArrowLeft className="h-5 w-5 transform rotate-180" />
+              <ArrowLeft size={20} />
             </button>
           </div>
-
-          {/* Horizontal scroll videos (alternative navigation) */}
+          
+          {/* Horizontal scroll videos */}
           <div 
             ref={scrollContainerRef}
             className="overflow-x-auto whitespace-nowrap pb-4 scrollbar-hide"
-            style={{ scrollbarWidth: 'none' }}
           >
             <div className="inline-flex space-x-4">
               {grid.videos.map((video: any, index: number) => (
@@ -290,6 +295,16 @@ export default function GridDetailPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
+      
+      <style jsx global>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 } 
