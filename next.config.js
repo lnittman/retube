@@ -1,13 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    domains: ['source.unsplash.com', 'images.unsplash.com'],
+  },
   eslint: {
-    // Ignore ESLint errors during production build
-    ignoreDuringBuilds: true,
+    // Only run ESLint on build in production
+    ignoreDuringBuilds: process.env.NODE_ENV === 'production',
   },
   typescript: {
-    // Ignore TypeScript errors during production build
-    ignoreBuildErrors: true,
+    // Only run TypeScript checking on build in production
+    ignoreBuildErrors: process.env.NODE_ENV === 'production',
   },
-}
+};
 
-module.exports = nextConfig 
+module.exports = nextConfig; 

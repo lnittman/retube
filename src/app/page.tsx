@@ -133,7 +133,7 @@ export default function HomePage() {
                   >
                     continue
                   </motion.button>
-                </div>
+        </div>
               </motion.div>
             </motion.div>
           )}
