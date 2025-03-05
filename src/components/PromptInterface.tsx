@@ -39,7 +39,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger
-} from './ui/tabs';
+} from '@/components/ui/tabs';
 
 export type ProcessingStage = 
   | 'analyzing prompt'
@@ -49,13 +49,13 @@ export type ProcessingStage =
   | null;
 
 export interface PromptInterfaceProps {
-  onSubmit: (prompt: string, inputType?: string, palettes?: ColorPalette[]) => void;
+  onSubmit: (prompt: string, inputType?: string, palettes?: ColorPalette[], links?: LinkEmbed[]) => void;
   isProcessing: boolean;
   processingStage: ProcessingStage;
   processingMessages?: string[];
 }
 
-type InputMode = 'text' | 'url' | 'palette';
+type InputMode = 'text' | 'palette' | 'link';
 
 export type ColorPalette = {
   id: string;
@@ -65,6 +65,15 @@ export type ColorPalette = {
   source?: string;
   mood?: string;
   isFavorite?: boolean;
+  isRecent?: boolean;
+};
+
+export type LinkEmbed = {
+  id: string;
+  url: string;
+  title: string;
+  description?: string;
+  favicon?: string;
   isRecent?: boolean;
 };
 
@@ -78,22 +87,28 @@ export default function PromptInterface({
   const [error, setError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>('text');
   const [selectedPalettes, setSelectedPalettes] = useState<ColorPalette[]>([]);
+  const [selectedLinks, setSelectedLinks] = useState<LinkEmbed[]>([]);
   const [generatingPalette, setGeneratingPalette] = useState(false);
+  const [processingLink, setProcessingLink] = useState(false);
   const [colorPalettes, setColorPalettes] = useState<ColorPalette[]>([]);
+  const [recentLinks, setRecentLinks] = useState<LinkEmbed[]>([]);
   const [favoritePalettes, setFavoritePalettes] = useState<ColorPalette[]>([]);
   const [recentPalettes, setRecentPalettes] = useState<ColorPalette[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [paletteDialogOpen, setPaletteDialogOpen] = useState(false);
+  const [linkDropdownOpen, setLinkDropdownOpen] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
 
-  // Load palettes and favorites on mount
+  // Load palettes, favorites, and links on mount
   useEffect(() => {
     generateMockPalettes();
     loadFavorites();
     loadRecentPalettes();
+    loadRecentLinks();
   }, []);
 
   // Save favorites whenever they change
@@ -109,6 +124,13 @@ export default function PromptInterface({
       saveRecentPalettes();
     }
   }, [recentPalettes]);
+  
+  // Save recent links whenever they change
+  useEffect(() => {
+    if (recentLinks.length > 0) {
+      saveRecentLinks();
+    }
+  }, [recentLinks]);
 
   useEffect(() => {
     // Auto-focus the input field on mount
@@ -161,6 +183,25 @@ export default function PromptInterface({
       console.error('Error saving recent palettes:', error);
     }
   };
+  
+  const loadRecentLinks = () => {
+    try {
+      const savedLinks = localStorage.getItem('recentLinks');
+      if (savedLinks) {
+        setRecentLinks(JSON.parse(savedLinks));
+      }
+    } catch (error) {
+      console.error('Error loading recent links:', error);
+    }
+  };
+  
+  const saveRecentLinks = () => {
+    try {
+      localStorage.setItem('recentLinks', JSON.stringify(recentLinks));
+    } catch (error) {
+      console.error('Error saving recent links:', error);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInput(e.target.value);
@@ -192,17 +233,75 @@ export default function PromptInterface({
     // Open the full palette dialog to show all matches
     setPaletteDialogOpen(true);
   };
+  
+  const processLink = async (url: string) => {
+    setProcessingLink(true);
+    setError(null);
+    
+    try {
+      // In a real implementation, this would call r.jina.ai to process the link
+      // For now, we'll simulate the API call with a timeout
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Generate a mock response
+      const newLink: LinkEmbed = {
+        id: `link-${Date.now()}`,
+        url,
+        title: url.includes('youtube') ? 
+          'YouTube Video' : 
+          url.includes('github') ? 
+            'GitHub Repository' : 
+            'Web Page',
+        description: `Embedded content from ${new URL(url).hostname}`,
+        favicon: `https://www.google.com/s2/favicons?domain=${url}`,
+        isRecent: true
+      };
+      
+      // Add to selected links
+      setSelectedLinks(prev => [...prev, newLink]);
+      
+      // Add to recent links
+      setRecentLinks(prev => {
+        const filteredPrev = prev.filter(l => l.url !== url);
+        return [{...newLink, isRecent: true}, ...filteredPrev].slice(0, 5);
+      });
+      
+      setUserInput('');
+      setInputMode('text');
+    } catch (error) {
+      console.error('Error processing link:', error);
+      setError('failed to process link');
+    } finally {
+      setProcessingLink(false);
+      setLinkDropdownOpen(false);
+    }
+  };
+  
+  const handleLinkSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!userInput.trim()) {
+      setError('please enter a valid url');
+      return;
+    }
+    
+    if (!isValidURL(userInput)) {
+      setError('please enter a valid url');
+      return;
+    }
+    
+    processLink(userInput);
+  };
+  
+  const removeLink = (linkId: string) => {
+    setSelectedLinks(prev => prev.filter(link => link.id !== linkId));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!userInput.trim() && selectedPalettes.length === 0) {
-      setError('please enter a prompt, url, or select a palette');
-      return;
-    }
-    
-    if (inputMode === 'url' && !isValidURL(userInput)) {
-      setError('please enter a valid url');
+    if (!userInput.trim() && selectedPalettes.length === 0 && selectedLinks.length === 0) {
+      setError('please enter a prompt or select a palette/link');
       return;
     }
     
@@ -217,15 +316,16 @@ export default function PromptInterface({
       });
     }
     
-    // Call onSubmit with the input, mode, and selected palettes
+    // Call onSubmit with the input, mode, palettes and links
     onSubmit(
       userInput, 
       inputMode,
-      selectedPalettes.length > 0 ? selectedPalettes : undefined
+      selectedPalettes.length > 0 ? selectedPalettes : undefined,
+      selectedLinks.length > 0 ? selectedLinks : undefined
     );
     
     setUserInput('');
-    // Note: we keep the selected palettes for continuity
+    // Note: we keep the selected palettes and links for continuity
   };
 
   const isValidURL = (string: string) => {
@@ -331,38 +431,47 @@ export default function PromptInterface({
   };
   
   const togglePalette = (palette: ColorPalette) => {
-    setSelectedPalettes(prev => {
-      const isSelected = prev.some(p => p.id === palette.id);
-      if (isSelected) {
-        return prev.filter(p => p.id !== palette.id);
-      } else {
-        return [...prev, palette];
-      }
-    });
+    // Check if this palette is already selected
+    const isSelected = selectedPalettes.some(p => p.id === palette.id);
     
-    if (inputMode !== 'palette') {
-      setInputMode('palette');
+    if (isSelected) {
+      // If selected, remove it
+      setSelectedPalettes(prev => prev.filter(p => p.id !== palette.id));
+    } else {
+      // If not selected, add it
+      setSelectedPalettes(prev => [...prev, palette]);
     }
+    
+    // Set input mode to palette
+    setInputMode('palette');
   };
   
   const toggleFavorite = (palette: ColorPalette) => {
-    const updated = {...palette, isFavorite: !palette.isFavorite};
+    // Toggle favorite status
+    const updatedPalette = {...palette, isFavorite: !palette.isFavorite};
     
-    // Update in all collections
+    // Update in color palettes
     setColorPalettes(prev => 
-      prev.map(p => p.id === palette.id ? updated : p)
+      prev.map(p => p.id === palette.id ? updatedPalette : p)
     );
-    
-    if (updated.isFavorite) {
-      setFavoritePalettes(prev => [...prev, updated]);
-    } else {
-      setFavoritePalettes(prev => prev.filter(p => p.id !== palette.id));
-    }
     
     // Update in selected palettes if it's there
     setSelectedPalettes(prev => 
-      prev.map(p => p.id === palette.id ? updated : p)
+      prev.map(p => p.id === palette.id ? updatedPalette : p)
     );
+    
+    // Update favorites list
+    if (updatedPalette.isFavorite) {
+      // Add to favorites if not already there
+      if (!favoritePalettes.some(p => p.id === updatedPalette.id)) {
+        setFavoritePalettes(prev => [...prev, updatedPalette]);
+      }
+    } else {
+      // Remove from favorites
+      setFavoritePalettes(prev => 
+        prev.filter(p => p.id !== updatedPalette.id)
+      );
+    }
   };
   
   const removePalette = (paletteId: string) => {
@@ -468,31 +577,91 @@ export default function PromptInterface({
           <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
             <div className="flex space-x-1 items-center">
               {/* Input type buttons */}
-              <button
-                type="button"
-                onClick={() => setInputMode('text')}
-                className={cn(
-                  "p-2 rounded-md",
-                  inputMode === 'text' 
-                    ? "bg-zinc-800 text-white" 
-                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                )}
-              >
-                <ChatsCircle size={18} weight={inputMode === 'text' ? "fill" : "regular"} />
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setInputMode('url')}
-                className={cn(
-                  "p-2 rounded-md",
-                  inputMode === 'url' 
-                    ? "bg-zinc-800 text-white" 
-                    : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                )}
-              >
-                <LinkSimple size={18} weight={inputMode === 'url' ? "fill" : "regular"} />
-              </button>
+              {/* Link dropdown for embeds */}
+              <DropdownMenu open={linkDropdownOpen} onOpenChange={setLinkDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "p-2 rounded-md flex items-center gap-1",
+                      inputMode === 'link' 
+                        ? "bg-zinc-800 text-white" 
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                    )}
+                    onClick={() => setInputMode('link')}
+                  >
+                    <Globe size={18} weight={inputMode === 'link' ? "fill" : "regular"} />
+                    <CaretDown size={12} weight="bold" className="text-zinc-400" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start" 
+                  className="w-64 bg-zinc-900 border-zinc-800 p-2"
+                  sideOffset={8}
+                >
+                  <p className="text-xs text-zinc-400 mb-2">embed link</p>
+                  
+                  {/* Link input form */}
+                  <form onSubmit={handleLinkSubmit} className="flex gap-1 mb-2">
+                    <Input 
+                      ref={linkInputRef}
+                      value={userInput}
+                      onChange={handleInputChange}
+                      placeholder="paste url to embed..." 
+                      className="h-8 text-xs bg-zinc-800 border-0 flex-1"
+                    />
+                    <button
+                      type="submit"
+                      disabled={processingLink}
+                      className={cn(
+                        "p-1 rounded-md bg-zinc-800",
+                        processingLink ? "text-zinc-500" : "text-zinc-400 hover:text-white"
+                      )}
+                    >
+                      {processingLink ? (
+                        <CircleNotch size={16} className="animate-spin" />
+                      ) : (
+                        <ArrowCircleRight size={16} />
+                      )}
+                    </button>
+                  </form>
+                  
+                  {error && inputMode === 'link' && (
+                    <p className="text-xs text-red-400 mb-2">{error}</p>
+                  )}
+                  
+                  {recentLinks.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator className="bg-zinc-800 my-2" />
+                      <p className="text-xs text-zinc-400 mb-2">recent links</p>
+                      
+                      <div className="space-y-2 max-h-44 overflow-y-auto">
+                        {recentLinks.map(link => (
+                          <div 
+                            key={link.id}
+                            className="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-zinc-800/70 transition-colors"
+                            onClick={() => {
+                              // Add to selected links if not already there
+                              if (!selectedLinks.some(l => l.id === link.id)) {
+                                setSelectedLinks(prev => [...prev, link]);
+                              }
+                              setLinkDropdownOpen(false);
+                            }}
+                          >
+                            {link.favicon && (
+                              <img src={link.favicon} alt="" className="w-4 h-4" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{link.title}</p>
+                              <p className="text-xs text-zinc-500 truncate">{link.url}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               {/* Palette dropdown with simplified search */}
               <DropdownMenu>
@@ -505,6 +674,7 @@ export default function PromptInterface({
                         ? "bg-zinc-800 text-white" 
                         : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
                     )}
+                    onClick={() => setInputMode('palette')}
                   >
                     <Palette size={18} weight={inputMode === 'palette' ? "fill" : "regular"} />
                     <CaretDown size={12} weight="bold" className="text-zinc-400" />
@@ -674,7 +844,7 @@ export default function PromptInterface({
               </DropdownMenu>
             </div>
             
-            {error && (
+            {error && inputMode !== 'link' && (
               <motion.p 
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -685,8 +855,8 @@ export default function PromptInterface({
             )}
           </div>
           
-          {/* Selected palettes display */}
-          {selectedPalettes.length > 0 && (
+          {/* Selected palettes and links display */}
+          {(selectedPalettes.length > 0 || selectedLinks.length > 0) && (
             <div className="flex flex-wrap gap-2 px-3 py-2 border-b border-zinc-800 bg-zinc-900/50">
               {selectedPalettes.map(palette => (
                 <div 
@@ -712,6 +882,25 @@ export default function PromptInterface({
                   </button>
                 </div>
               ))}
+              
+              {selectedLinks.map(link => (
+                <div 
+                  key={link.id}
+                  className="flex items-center gap-1 bg-zinc-800 rounded-full pl-2 pr-1 py-1"
+                >
+                  {link.favicon && (
+                    <img src={link.favicon} alt="" className="w-3 h-3" />
+                  )}
+                  <span className="text-xs text-zinc-300 ml-1">{link.title}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeLink(link.id)}
+                    className="ml-1 p-1 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-700"
+                  >
+                    <X size={12} weight="bold" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           
@@ -724,14 +913,14 @@ export default function PromptInterface({
                 placeholder={
                   inputMode === 'text' 
                     ? "ask for a video grid..." 
-                    : inputMode === 'url' 
-                      ? "paste any video url..."
+                    : inputMode === 'link'
+                      ? "paste url to embed..."
                       : selectedPalettes.length > 0
                         ? `describe content with selected palettes...`
                         : "describe colors or mood..."
                 }
                 className="flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
-                type={inputMode === 'url' ? "url" : "text"}
+                type={inputMode === 'link' ? "url" : "text"}
                 autoComplete="off"
                 disabled={isProcessing}
               />
@@ -740,7 +929,7 @@ export default function PromptInterface({
                 type="submit"
                 size="icon"
                 variant="ghost"
-                disabled={isProcessing || (!userInput.trim() && selectedPalettes.length === 0)}
+                disabled={isProcessing || (inputMode !== 'link' && !userInput.trim() && selectedPalettes.length === 0 && selectedLinks.length === 0)}
                 className="text-zinc-400 hover:text-white"
               >
                 <ArrowCircleRight size={22} weight="fill" />
@@ -775,4 +964,6 @@ function StageIndicator({ stage }: { stage: ProcessingStage }) {
       <p className="text-sm font-medium">{stage ?? 'processing'}</p>
     </div>
   );
-} 
+}
+
+// Render a palette item 
