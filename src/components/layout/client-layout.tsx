@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Header } from '@/components/layout/header';
-import { Navigation } from '@/components/layout/navigation';
 import PromptInterface, { ProcessingStage, ColorPalette } from '@/components/PromptInterface';
 import { SidebarProvider } from '@/components/ui/sidebar';
 
@@ -21,11 +20,9 @@ export default function ClientLayout({
   
   // Check for specific pages
   const isHomePage = pathname === '/';
-  const isGridsPage = pathname === '/grids';
-  const isGridDetailPage = pathname.startsWith('/grids/') && pathname !== '/grids/create';
   
   // Pages that use custom headers
-  const usesCustomHeader = isHomePage || isGridsPage || isGridDetailPage;
+  const usesCustomHeader = isHomePage;
   
   const handleSubmit = async (prompt: string, inputType?: string, palettes?: ColorPalette[]) => {
     // Clear previous messages
@@ -202,7 +199,6 @@ export default function ClientLayout({
         ) : (
           <>
             {!usesCustomHeader && <Header />}
-            <Navigation />
             <main className="min-h-screen">{children}</main>
           </>
         )}
