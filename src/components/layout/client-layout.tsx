@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Header } from '@/components/layout/header';
 import { Navigation } from '@/components/layout/navigation';
 import PromptInterface, { ProcessingStage, ColorPalette } from '@/components/PromptInterface';
+import { SidebarProvider } from '@/components/ui/sidebar';
 
 export default function ClientLayout({
   children,
@@ -190,23 +191,22 @@ export default function ClientLayout({
       defaultTheme="dark"
       forcedTheme="dark"
     >
-      <div className="flex flex-col min-h-screen">
-        {!usesCustomHeader && <Header />}
-        <main className={`flex-1 ${!isHomePage ? 'pb-28' : ''}`}>
-          {children}
-        </main>
-        {!usesCustomHeader && <Navigation />}
-        {!isHomePage && (
-          <div className="fixed bottom-0 left-0 right-0 z-30">
-            <PromptInterface 
-              onSubmit={handleSubmit}
-              isProcessing={isProcessing}
-              processingStage={processingStage}
-              processingMessages={processingMessages}
-            />
-          </div>
+      <SidebarProvider defaultOpen={false}>
+        {isProcessing ? (
+          <PromptInterface
+            onSubmit={handleSubmit}
+            isProcessing={isProcessing}
+            processingStage={processingStage}
+            processingMessages={processingMessages}
+          />
+        ) : (
+          <>
+            {!usesCustomHeader && <Header />}
+            <Navigation />
+            <main className="min-h-screen">{children}</main>
+          </>
         )}
-      </div>
+      </SidebarProvider>
     </ThemeProvider>
   );
 } 
